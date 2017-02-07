@@ -1,0 +1,44 @@
+#!/bin/bash
+
+
+#####################################
+iternum=10
+skipenvprepare=1
+#####################################
+
+if [ "$skipenvprepare" != "1" ];then
+    echo "============Preparing environment start====================="
+    rmdef testng1
+    rmdef -t group -o testng1
+    mkdef -t group -o testng1 ip='|node(\d{2})(\d{2})|10.0.($1+0).($2+0)|' mac='|node(\d{2})(\d{2})|42:dc:00:00:($1):($2)|'
+    for (( i=1; i<1001; i++  )) ;do  num=$(printf "%04d" "$i"); mkdef -t node -o node$num groups=testng1;done
+    
+    echo "============Preparing environment finished=================="
+fi
+
+
+
+for(( i=100; i<1001; i=i+100 )); do 
+    timemakedhcp_tmp=0
+    timeremovedhcp_tmp=0
+    for(( iter=0; iter<iternum; iter++  )); do
+        nrmax=$(printf "%04d" "$i");
+        echo $nrmax
+        ts=$(date +%s%N)
+        makedhcp node0001-node$nrmax
+        tt=$[$(date +%s%N)-$ts]
+        timemakedhcp_tmp=$[$tt+$timemakedhcp_tmp]
+        ts=$(date +%s%N)
+        makedhcp -d node0001-node$nrmax
+        tt=$[$(date +%s%N)-$ts]
+        timeremovedhcp_tmp=$[$tt+$timeremovedhcp_tmp]
+    done
+    timemakedhcp[$i]=$[$timemakedhcp_tmp/($iternum*1000000)]
+    timeremovedhcp[$i]=$[$timeremovedhcp_tmp/($iternum*1000000)]
+
+    echo "$i   ${timemakedhcp[$i]}  ${timeremovedhcp[$i]}" | tee -a /tmp/makedhcptime
+done
+
+
+`pwd`/plot.gnuplot
+cat /install/dhcpperf.dumb
